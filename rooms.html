@@ -9,13 +9,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
 <style>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background: #000;
+  background: black;
   color: white;
   font-family: 'Press Start 2P', monospace;
   display: flex;
@@ -25,21 +27,21 @@ body {
   overflow: hidden;
 }
 
-/* IMAGEN DE FONDO */
+/* FONDO ORIGINAL */
 .fondo {
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: -3;
   background: url("fondo.jpg") center / cover no-repeat;
   image-rendering: pixelated;
-  filter: brightness(.55) contrast(1.3);
+  filter: brightness(.48) contrast(1.4);
 }
 
-/* EFECTO RETRO */
+/* EFECTO DE PANTALLA RETRO */
 .scanlines {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
   pointer-events: none;
   background: repeating-linear-gradient(
     to bottom,
@@ -50,34 +52,71 @@ body {
 }
 
 .contenido {
-  width: 95%;
-  padding: 20px;
+  width: 96%;
+  max-width: 950px;
+  padding: 20px 8px;
 }
 
 h1 {
-  font-size: clamp(16px, 4vw, 35px);
+  font-size: clamp(15px, 4vw, 35px);
   line-height: 1.8;
   color: #ff3344;
-  text-shadow: 3px 3px #600000;
+  text-shadow: 4px 4px #650000;
   margin-bottom: 35px;
 }
 
 #contador {
-  font-size: clamp(22px, 7vw, 70px);
+  font-size: clamp(15px, 4.5vw, 45px);
+  line-height: 1.8;
   font-variant-numeric: tabular-nums;
-  line-height: 1.6;
+  color: white;
   text-shadow:
-    4px 4px #8b0000,
+    4px 4px #990000,
     0 0 20px red;
 }
 
+.etiquetas {
+  font-size: clamp(7px, 1.4vw, 12px);
+  color: #ff7788;
+  margin-top: 20px;
+  line-height: 2;
+}
+
+/* MENSAJE DE ECLOSIÓN */
 #mensajeFinal {
   display: none;
-  font-size: clamp(17px, 4vw, 45px);
+  font-size: clamp(16px, 4vw, 42px);
   line-height: 2;
   color: white;
-  text-shadow: 4px 4px red;
-  animation: glitch .4s infinite;
+  text-shadow:
+    4px 4px #ff0033,
+    0 0 25px red;
+  animation: glitch .35s infinite;
+}
+
+/* BOTONES PIXELADOS */
+.boton {
+  display: inline-block;
+  font-family: inherit;
+  font-size: clamp(9px, 2vw, 12px);
+  line-height: 1.8;
+  margin-top: 30px;
+  padding: 16px;
+  color: white;
+  background: #180000;
+  border: 3px solid #ff3344;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 5px 5px 0 #700000;
+}
+
+.boton:active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0 #700000;
+}
+
+#pantallaFinal {
+  display: none;
 }
 
 @keyframes glitch {
@@ -95,50 +134,210 @@ h1 {
 <div class="scanlines"></div>
 
 <main class="contenido">
+
+  <!-- ANTES DE LA ECLOSIÓN -->
   <div id="espera">
     <h1>PRÓXIMAMENTE</h1>
-    <div id="contador">00:00:00</div>
+
+    <div id="contador">00:00:00:00</div>
+
+    <div class="etiquetas">
+      DÍAS : HORAS : MIN : SEG
+    </div>
+
+    <button class="boton" id="activar">
+      ACTIVAR SONIDO 🔊
+    </button>
   </div>
 
-  <div id="mensajeFinal">
-    mini mini.exe está aquí
+  <!-- DESPUÉS DE LA ECLOSIÓN -->
+  <div id="pantallaFinal">
+
+    <div id="mensajeFinal">
+      mini mini.exe ha eclosionado
+    </div>
+
+    <a
+      class="boton"
+      href="https://www.google.com/maps/search/?api=1&amp;query=19.340435%2C-99.176822"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      📍 UBICACIONES DEL SUCESO
+    </a>
+
+    <div>
+      <button class="boton" id="reproducir">
+        🔊 REPRODUCIR SONIDO
+      </button>
+    </div>
+
   </div>
+
 </main>
 
+<!-- TU AUDIO DE ECLOSIÓN -->
+<audio
+  id="audioFinal"
+  src="minimini.mp3"
+  preload="auto">
+</audio>
+
 <script>
-// Fecha final: 23 octubre 2026, 20:30 CDMX
-const final = new Date(
-  "2026-10-23T20:30:00-06:00"
+
+// FECHA DE ECLOSIÓN
+// 5 NOVIEMBRE 2026 - 9:00 PM CDMX
+const fechaFinal = new Date(
+  "2026-11-05T21:00:00-06:00"
 ).getTime();
 
 const espera = document.getElementById("espera");
-const mensaje = document.getElementById("mensajeFinal");
 const contador = document.getElementById("contador");
+const pantallaFinal = document.getElementById("pantallaFinal");
+const mensaje = document.getElementById("mensajeFinal");
+const activar = document.getElementById("activar");
+const reproducir = document.getElementById("reproducir");
+const audio = document.getElementById("audioFinal");
 
+let contextoAudio = null;
+let sonidoActivo = false;
+let terminado = false;
+let ultimoSegundo = null;
+
+// PITIDO RETRO DE CADA SEGUNDO
+function pip() {
+  if (!sonidoActivo || !contextoAudio) return;
+  if (contextoAudio.state !== "running") return;
+
+  const oscilador = contextoAudio.createOscillator();
+  const volumen = contextoAudio.createGain();
+
+  oscilador.type = "square";
+  oscilador.frequency.value = 650;
+
+  volumen.gain.setValueAtTime(
+    0.035,
+    contextoAudio.currentTime
+  );
+
+  volumen.gain.exponentialRampToValueAtTime(
+    0.001,
+    contextoAudio.currentTime + 0.07
+  );
+
+  oscilador.connect(volumen);
+  volumen.connect(contextoAudio.destination);
+
+  oscilador.start();
+  oscilador.stop(
+    contextoAudio.currentTime + 0.07
+  );
+}
+
+// ACTIVAR PITIDOS
+activar.addEventListener("click", async () => {
+  try {
+    contextoAudio = contextoAudio ||
+      new (window.AudioContext ||
+           window.webkitAudioContext)();
+
+    await contextoAudio.resume();
+
+    sonidoActivo = true;
+    audio.load();
+
+    activar.textContent = "SONIDO ACTIVADO ✓";
+    pip();
+
+  } catch (error) {
+    activar.textContent = "REINTENTAR SONIDO";
+  }
+});
+
+// REPRODUCIR SONIDO FINAL MANUALMENTE
+reproducir.addEventListener("click", () => {
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+});
+
+// MOSTRAR ECLOSIÓN
+function eclosionar() {
+  if (terminado) return;
+
+  terminado = true;
+
+  espera.style.display = "none";
+  pantallaFinal.style.display = "block";
+  mensaje.style.display = "block";
+
+  // INTENTAR REPRODUCIR TU MP3
+  if (sonidoActivo) {
+    audio.currentTime = 0;
+    audio.play().catch(() => {
+      // Si el navegador bloquea autoplay,
+      // se puede usar el botón manual.
+    });
+  }
+
+  clearInterval(intervalo);
+}
+
+// ACTUALIZAR CRONÓMETRO
 function actualizar() {
-  const restante = final - Date.now();
+  const restante = Math.max(
+    0,
+    fechaFinal - Date.now()
+  );
 
   if (restante <= 0) {
-    espera.style.display = "none";
-    mensaje.style.display = "block";
+    eclosionar();
     return;
   }
 
-  const horas = Math.floor(restante / 3600000);
-  const minutos = Math.floor(
-    (restante % 3600000) / 60000
-  );
-  const segundos = Math.floor(
-    (restante % 60000) / 1000
+  const segundosTotales = Math.ceil(
+    restante / 1000
   );
 
-  contador.textContent = [horas,minutos,segundos]
-    .map(n => String(n).padStart(2,"0"))
-    .join(":");
+  const dias = Math.floor(
+    segundosTotales / 86400
+  );
+
+  const horas = Math.floor(
+    (segundosTotales % 86400) / 3600
+  );
+
+  const minutos = Math.floor(
+    (segundosTotales % 3600) / 60
+  );
+
+  const segundos = segundosTotales % 60;
+
+  const formato = n =>
+    String(n).padStart(2, "0");
+
+  contador.textContent =
+    `${formato(dias)}:${formato(horas)}:` +
+    `${formato(minutos)}:${formato(segundos)}`;
+
+  // PITIDO CADA SEGUNDO
+  if (
+    ultimoSegundo !== null &&
+    segundosTotales !== ultimoSegundo
+  ) {
+    pip();
+  }
+
+  ultimoSegundo = segundosTotales;
 }
 
+// INICIAR
 actualizar();
-setInterval(actualizar, 250);
+
+const intervalo = setInterval(
+  actualizar,
+  100
+);
+
 </script>
 
 </body>
